@@ -24,9 +24,8 @@ Verify that three "Microsoft Corp" entries appear when you plug in the Kinect an
 	
 	lsusb
 
-#### Copy Kinect XML Config File*
-Download http://www.imaginativeuniversal.com/codesamples/kinectxmls.zip
-Copy /KinectXMLs/OpenNI/SamplesConfig.xml to the OpenNI installation folder (/OpenNI/data/), overwriting the existing XML file.
+#### Copy Kinect XML Config File
+Download http://www.imaginativeuniversal.com/codesamples/kinectxmls.zip and copy KinectXMLs/OpenNI/SamplesConfig.xml to the OpenNI installation folder (/OpenNI/data/), overwriting the existing XML file.
 
 # Installation
 	make
