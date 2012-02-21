@@ -1,0 +1,14 @@
+CC=g++
+CCFLAGS=-g
+INCLUDEDIRS=-I/usr/include/ni
+LDFLAGS=-lXnCore
+SOURCES=kinectd.cpp
+EXECUTABLE=kinectd
+
+all: $(EXECUTABLE)
+
+$(EXECUTABLE): $(SOURCES)
+	$(CC) $(CCFLAGS) $(INCLUDEDIRS) $(LDFLAGS) $(SOURCES) -o $(EXECUTABLE)
+
+clean:
+	rm -f ./$(EXECUTABLE)
