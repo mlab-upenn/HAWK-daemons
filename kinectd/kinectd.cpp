@@ -7,13 +7,19 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+// libjpeg include
+#include <jpeglib.h>
+
+// zlib Include
+#include <zlib.h>
+
 // OpenNI Includes
 #include <XnOpenNI.h>
 #include <XnLog.h>
 #include <XnCppWrapper.h>
 #include <XnFPSCalculator.h>
 
-#define BASE_STATION_ADDR 	"158.130.13.93"
+#define BASE_STATION_ADDR 	"192.168.1.120"
 #define BASE_STATION_PORT 	"1337"
 
 //TODO Think about doing this dynamically
@@ -27,8 +33,17 @@ using namespace xn;
 
 ImageGenerator g_image;
 ImageMetaData g_imageMD;
+DepthGenerator depth;
+DepthMetaData depthMD;
 Context context;
 const XnGrayscale8Pixel* monoImage;
+
+//zlib
+z_stream strm;
+
+//libjpeg
+struct jpeg_compress_struct cinfo;
+struct jpeg_error_mgr jerr;
 
 // Set up OpenNI to obtain 8-bit mono images from the Kinect's RGB camera
 int kinectInit(void)
@@ -40,14 +55,13 @@ int kinectInit(void)
   printf("Reading config from: '%s'\n", SAMPLE_XML_PATH_LOCAL);
   nRetVal = context.InitFromXmlFile(SAMPLE_XML_PATH_LOCAL, scriptNode, &errors);
 
-  if (nRetVal != XN_STATUS_OK) {
-    return nRetVal;
-  }
-
-  nRetVal = context.FindExistingNode(XN_NODE_TYPE_IMAGE, g_image);
-  g_image.SetPixelFormat(XN_PIXEL_FORMAT_GRAYSCALE_8_BIT);
-  nRetVal = context.WaitOneUpdateAll(g_image);
+  nRetVal = context.FindExistingNode(XN_NODE_TYPE_IMAGE, g_image); 
+  //g_image.SetPixelFormat(XN_PIXEL_FORMAT_GRAYSCALE_8_BIT); 
+  g_image.SetPixelFormat(XN_PIXEL_FORMAT_RGB24); 
   g_image.GetMetaData(g_imageMD);
+
+  nRetVal = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depth);
+  depth.GetMetaData(depthMD);
 
  return nRetVal;
 }
@@ -57,6 +71,9 @@ int kinectUpdate(void)
 {
   XnStatus nRetVal = context.WaitOneUpdateAll(g_image);
   g_image.GetMetaData(g_imageMD);
+  nRetVal = context.WaitOneUpdateAll(depth);
+  depth.GetMetaData(depthMD);
+  
   return nRetVal;
 }
 
@@ -135,8 +152,99 @@ int network_setup(void) {
 	return sockfd;
 }
 
+int setup_compression(void)
+
+{
+  cinfo.err = jpeg_std_error(&jerr);
+  jpeg_create_compress(&cinfo);
+  return 0;
+}
+
+int close_compression(void)
+{
+  jpeg_destroy_compress(&cinfo);
+  return 0;
+}
+
+int compress_frame(uint8_t * src, uint8_t ** dest, unsigned long * outsize,
+
+		   const int height, const int width, const int format)
+{
+  uint8_t * row_pointer;
+  int row_stride;
+
+  jpeg_mem_dest(&cinfo, dest, outsize);
+
+  cinfo.image_width = width;
+  cinfo.image_height = height;
+  cinfo.input_components = 3;
+  cinfo.in_color_space = JCS_RGB;
+  jpeg_set_defaults(&cinfo);
+
+  jpeg_start_compress(&cinfo, TRUE);
+  row_stride = width*format;
+
+  // Feed bitmap line-by-line
+  while(cinfo.next_scanline < cinfo.image_height) {
+    row_pointer = src + cinfo.next_scanline * row_stride;
+    jpeg_write_scanlines(&cinfo, &row_pointer, 1);
+  }
+  
+  jpeg_finish_compress(&cinfo);
+
+  return 0;
+}
+
+int compress_depth(uint8_t * src, uint8_t * dest, uint32_t in_size) {
+  int ret, have;
+  uint8_t * in;
+  uint8_t * out;
+
+  in = src;
+  out = dest;
+
+  // Set up zlib
+  strm.zalloc = Z_NULL;
+  strm.zfree = Z_NULL;
+  strm.opaque = Z_NULL;
+  ret = deflateInit(&strm, 1);
+
+  if(ret != Z_OK) {
+    printf("deflateinit failed\n");
+    exit(1);
+  }
+
+  strm.avail_in = in_size;
+  strm.next_in = in;
+  strm.avail_out = in_size;
+  strm.next_out = out;
+  ret = deflate(&strm, Z_FINISH);
+
+  if(ret == Z_STREAM_ERROR) {
+    printf("deflate: Z_STREAM_ERROR\n");
+    exit(1);
+  } else if(ret != Z_STREAM_END) {
+    printf("error: expected Z_STREAM_END\n");
+  }
+
+  have = in_size - strm.avail_out;
+
+  if(deflateEnd(&strm) != Z_OK) {
+
+    printf("error: deflateEnd\n");
+
+    exit(1);
+
+  }
+
+  return have;
+}
+
 int main(void) {
+	printf("unsigned long size: %d\n", sizeof(unsigned long));
+
 	int sockfd = network_setup();
+	int framecount = 0;
 
 	// Initialize the Kinect  
 	if(kinectInit() != XN_STATUS_OK) {
@@ -144,16 +252,60 @@ int main(void) {
 		return 1;
 	}
 
-	int outsize = sizeof(uint8_t)*640*480;
+	uint32_t depthsize = sizeof(uint16_t)*640*480;
+	unsigned long rgbsize;
+	rgbsize = sizeof(uint8_t)*3*640*480;
+
+	uint8_t *compdepth = (uint8_t *) malloc(depthsize);
+	uint8_t *comprgb = (uint8_t *) malloc(rgbsize);
+
+	uint8_t *image_data;
+	uint8_t *depth_data;
+
+	uint32_t depthcompression;
+	//unsigned long *rgbcompression = (unsigned long *) malloc(sizeof(long));
+	unsigned long outsize;
+
+	setup_compression();
 
 	while(1) {
-		
-		
 		kinectUpdate();
 
-		if((sendall(sockfd, (uint8_t *)g_imageMD.Grayscale8Data(), outsize)) < 0) {
-			perror("sendallb");
+		//compress rgb
+		image_data = (uint8_t *)g_imageMD.RGB24Data();
+		//comprgb = (uint8_t *)g_imageMD.RGB24Data();
+		//compression = rgbsize;
+
+		compress_frame(image_data, &comprgb, &outsize, 480, 640, 3);	
+		printf("compressed rgb to size %d\n", outsize);
+
+		//send size of compressed rgb frame
+		if((sendall(sockfd, (uint8_t *)&outsize, sizeof(uint32_t))) < 0) {
+			perror("sendallrgbsize");
+			exit(1);
+		} 
+		
+		if((sendall(sockfd, comprgb, outsize)) < 0) {
+			perror("sendallrgb");
 			exit(1);
 		}
+	
+		//compress depth 
+		depth_data = (uint8_t *)depthMD.Data();
+		depthcompression = compress_depth(depth_data, compdepth, depthsize);	
+		printf("compressed depth to size %d\n", depthcompression);
+
+		//send size of compressed rgb frame
+		if((sendall(sockfd, (uint8_t *)&depthcompression, sizeof(uint32_t))) < 0) {
+			perror("sendalldepthsize");
+			exit(1);
+		}
+ 
+		if((sendall(sockfd, compdepth, depthcompression)) < 0) {
+			perror("sendalldepth");
+			exit(1);
+}
+
+		printf("sent out frame %d\n", ++framecount);
 	}
 }

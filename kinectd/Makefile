@@ -1,7 +1,7 @@
 CC=g++
-CCFLAGS=-g
+CCFLAGS=-g -O3
 INCLUDEDIRS=-I/usr/include/ni
-LDFLAGS=-lXnCore
+LDFLAGS=-lXnCore -lz -ljpeg
 SOURCES=kinectd.cpp
 EXECUTABLE=kinectd
 
