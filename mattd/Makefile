@@ -1,0 +1,14 @@
+CC=gcc
+CCFLAGS=
+INCLUDEDIRS=
+LDFLAGS=
+SOURCES=mattd.c mattd.h
+EXECUTABLE=mattd
+
+all: $(EXECUTABLE)
+
+$(EXECUTABLE): $(SOURCES)
+	$(CC) $(CCFLAGS) $(INCLUDEDIRS) $(LDFLAGS) $(SOURCES) -o $(EXECUTABLE)
+
+clean:
+	rm -f ./$(EXECUTABLE)
