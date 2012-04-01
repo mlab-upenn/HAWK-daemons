@@ -10,6 +10,7 @@
 #include <errno.h>   /* Error number definitions */
 #include <termios.h> /* POSIX terminal control definitions */
 #include <stdint.h>
+#include <asm/ioctls.h>
 
 #include "mattd.h"
 
@@ -27,7 +28,7 @@ void open_port() {
 		perror(DAEMON);
 		exit(0);
 	} else
-		fcntl(serial_fd, F_SETFL, FNDELAY); //don't block while reading
+		fcntl(serial_fd, F_SETFL, 0); //FNDELAY); //don't block while reading
 }
 
 void close_port() {
@@ -42,76 +43,83 @@ int read_bytes(uint8_t *dest, const int size) {
 	int val;
 
 	val = read(serial_fd, dest, size);
+	printf("got char: %x\n", *dest);
 	if (val >= 0) //include -1 for "resource temporarily unavailable"		
 		return val;
 	else {
 		printf("%d\n", val);
+		printf("error in read_bytes\n");
+		printf("dest: %x size: %x\n", *dest, size);
 		perror(DAEMON);
 		exit(0);
 	}
 } 
 
 int available() {
-	uint8_t buf;
-	return read(serial_fd, &buf, 0);
+	int bytes;
+	ioctl(serial_fd, FIONREAD, &bytes);
+	return bytes;
 }
 
 /* Try to receive data and put it at location marked by dest
  * Return size of data received, otherwise 0
  */
-int receive_data(uint8_t* dest) {
+int receive_data(uint8_t** dest) {
 	uint8_t buf, calc_CS;
 	int i;
+	rx_array_inx = 0;
+	rx_len = 0;
 
 	//try to receive preamble
-	if(rx_len == 0) {
-		if(available() >= 3) {
-			//this will block until a 0x06 is found or buffer size becomes less then 3.
-			read_bytes(&buf, 1);
-      			while(buf != 0x06) {
-				//This will trash any preamble junk in the serial buffer
-				//but we need to make sure there is enough in the buffer to process while we trash the rest
-				//if the buffer becomes too empty, we will escape and try again on the next call
-				if(available() < 3)
-					return 0;
-				read_bytes(&buf, 1);
-			}
-			read_bytes(&buf, 1);
-			if (buf == 0x85) {
-       		 		read_bytes(&rx_len, 1);
-				//malloc dest to this size
-				dest = (uint8_t *) malloc(rx_len);	
-      		 	}
-    		}
-	}
+	read_bytes(&buf, 1);
+	if (buf == 0x06) {
+	  read_bytes(&buf, 1);
+	  if (buf == 0x85) {
+    	read_bytes(&rx_len, 1);
+	    //malloc dest to this size
+		  *dest = (uint8_t *) malloc(rx_len);	
+		  printf("malloc'd dest to size %x\n", rx_len);
+   	
 
-	//we get here if we already found the header bytes
-	if(rx_len != 0){
-    		while(available() && rx_array_inx <= rx_len){
-      			read_bytes(dest + rx_array_inx++, 1);
-    		}
-    
-    		if(rx_len == (rx_array_inx - 1)){
-      			//seem to have got whole message
-      			//last uint8_t is CS
-      			calc_CS = rx_len;
-      			for (i = 0; i < rx_len; i++){
-        			calc_CS ^= dest[i];
-      			} 
-      
-      			if(calc_CS == dest[rx_array_inx - 1]){//CS good
-				rx_len = 0;
-				rx_array_inx = 0;
-				return rx_len;
-			} else {
-	  			//failed checksum, need to clear this out anyway
-				rx_len = 0;
-				rx_array_inx = 0;
-				return 0;
-	  		}
-    		}
-  	}
-	//TODO send NACK
+    printf("got preamble\n");
+	  //we get here if we already found the header bytes
+	  while(rx_array_inx <= rx_len){
+			  read_bytes((uint8_t *)(*dest) + rx_array_inx++, 1);
+	  }
+	
+    for (i = 0; i < rx_len; i++) {
+      printf("%x\n", (*dest)[i]);
+    }
+
+	  if(rx_len == (rx_array_inx - 1)){
+		  //seem to have got whole message
+		  //last uint8_t is CS
+		  printf("seemed to have gotten whole message\n");
+		  calc_CS = rx_len;
+		  for (i = 0; i < rx_len; i++){
+			  calc_CS ^= (*dest)[i];
+		  } 
+
+		  if(calc_CS == (*dest)[rx_array_inx - 1]){//CS good
+        rx_len = 0;
+        rx_array_inx = 0;
+        printf("sending ACK\n");
+        buf = ACK;
+        write(serial_fd, &buf, 1);
+        return rx_len;
+      } else {
+			  //failed checksum, need to clear this out anyway
+        rx_len = 0;
+        rx_array_inx = 0;
+        printf("sent NACK\n");
+        buf = NACK;
+    	  write(serial_fd, &buf, 1);
+        return 0;
+      }
+    }
+    }
+  }
+  printf("sent NACK\n");
 	buf = NACK;
 	write(serial_fd, &buf, 1); 
 	return 0;
@@ -153,6 +161,7 @@ void send_data(const uint8_t *data, const int len) {
 		write(serial_fd, &buf, 1);
 		//TODO wait for ACK from Ardupilot, resend if ACK not received or NACK
 		printf("waiting for ack...\n");
+		buf = 0;
 		val = read_bytes(&buf, 1);	
 		if (buf == ACK) {
 			printf("Teddy got the data!\n");
@@ -187,13 +196,34 @@ int main(int argc, char *argv[]) {
 	printf("trying to open %s\n", serial_path);
 	open_port();
 
-	//test code
-	//char test_data[30] = "Hi Teddy!";
+  //TODO notes for ACTUAL code
+  //open wireless socket with basestation
+  /*
+  uint8_t* data = NULL;
+  while(1) {
 
-	uint8_t test_data = 0xAB;
-	printf("trying to send byte %x\n", test_data);
-	send_data((uint8_t*) &test_data, 1);
+    if(data)
+      free(data);
+    receive_data(&data);
+    //TODO check if data was actually received, otherwise don't send over wifi
+      if(sendall(data) < 0) {
+        //if wireless socket broken
+          //send LAND command to ardupilot
+      }
+  }
+  */
 
+  uint8_t *teddy = NULL;
+
+  printf("started\n");
+  while(1) {
+    if(teddy != NULL) {
+     free(teddy);
+     teddy = NULL;
+    }
+    while(available() == 0);
+    receive_data(&teddy);
+  }
 	close_port();
 
 	return(0);
