@@ -1,5 +1,5 @@
 CC=gcc
-CCFLAGS=-g
+CCFLAGS=
 INCLUDEDIRS=
 LDFLAGS=
 SOURCES=mattd.c mattd.h
