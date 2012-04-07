@@ -260,6 +260,9 @@ int main(void) {
 
 	uint8_t *compdepth = (uint8_t *) malloc(depthsize);
 	uint8_t *comprgb = (uint8_t *) malloc(rgbsize);
+	
+	uint8_t * rgb_buf = (uint8_t *) malloc(rgbsize);
+	uint8_t * depth_buf = (uint8_t *) malloc(depthsize);
 
 	uint8_t *image_data;
 	uint8_t *depth_data;
@@ -274,7 +277,10 @@ int main(void) {
 		kinectUpdate();
 
 		//compress rgb
-		image_data = (uint8_t *)g_imageMD.RGB24Data();
+		rgb_buf = (uint8_t *)g_imageMD.RGB24Data();
+		depth_buf = (uint8_t *)depthMD.Data();
+		memcpy(image_data, rgb_buf, rgbsize);
+		memcpy(depth_data, depth_buf, depthsize);
 		//comprgb = (uint8_t *)g_imageMD.RGB24Data();
 		//compression = rgbsize;
 
@@ -293,7 +299,6 @@ int main(void) {
 		}
 	
 		//compress depth 
-		depth_data = (uint8_t *)depthMD.Data();
 		depthcompression = compress_depth(depth_data, compdepth, depthsize);	
 		printf("compressed depth to size %d\n", depthcompression);
 
