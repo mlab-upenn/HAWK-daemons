@@ -285,6 +285,17 @@ int main(void) {
 		//comprgb = (uint8_t *)g_imageMD.RGB24Data();
 		//compression = rgbsize;
 
+		if((sendall(sockfd, image_data, rgbsize)) < 0) {
+			perror("sendalldepthsize");
+			exit(1);
+		}
+
+		if((sendall(sockfd, depth_data, depthsize)) < 0) {
+			perror("sendalldepthsize");
+			exit(1);
+		}
+
+		/*
 		compress_frame(image_data, &comprgb, &outsize, 480, 640, 3);	
 		printf("compressed rgb to size %d\n", outsize);
 
@@ -313,7 +324,7 @@ int main(void) {
 			perror("sendalldepth");
 			exit(1);
 }
-
+		*/
 		printf("sent out frame %d\n", ++framecount);
 	}
 }
