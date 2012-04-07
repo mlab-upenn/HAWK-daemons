@@ -64,6 +64,7 @@ int kinectInit(void)
   depth.GetMetaData(depthMD);
 
   nRetVal = depth.GetAlternativeViewPointCap().SetViewPoint(g_image);
+  nRetVal = depth.GetFrameSyncCap().FrameSyncWith(g_image);
 
  return nRetVal;
 }
@@ -71,9 +72,9 @@ int kinectInit(void)
 // Updates to the latest image obtained from the Kinect
 int kinectUpdate(void)
 {
-  XnStatus nRetVal = context.WaitOneUpdateAll(g_image);
+  XnStatus nRetVal = context.WaitAndUpdateAll();
   g_image.GetMetaData(g_imageMD);
-  nRetVal = context.WaitOneUpdateAll(depth);
+  //nRetVal = context.WaitOneUpdateAll(depth);
   depth.GetMetaData(depthMD);
   
   return nRetVal;
