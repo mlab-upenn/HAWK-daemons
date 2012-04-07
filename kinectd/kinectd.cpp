@@ -19,7 +19,7 @@
 #include <XnCppWrapper.h>
 #include <XnFPSCalculator.h>
 
-#define BASE_STATION_ADDR 	"192.168.1.120"
+#define BASE_STATION_ADDR 	"192.168.1.21"
 #define BASE_STATION_PORT 	"1337"
 
 //TODO Think about doing this dynamically
