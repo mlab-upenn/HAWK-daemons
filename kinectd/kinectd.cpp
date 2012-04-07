@@ -63,7 +63,7 @@ int kinectInit(void)
   nRetVal = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depth);
   depth.GetMetaData(depthMD);
 
-  nRetVal = depth.GetAlternativeViewPointCap().SetViewPoint(g_image);
+  //  nRetVal = depth.GetAlternativeViewPointCap().SetViewPoint(g_image);
   //nRetVal = depth.GetFrameSyncCap().FrameSyncWith(g_image);
 
  return nRetVal;
