@@ -1,11 +1,8 @@
 #ifndef MATTD_H
 #define MATTD_H
 
-#define DEFAULT_SERIAL_PORT         	"/dev/ttyACM0"
+#define DEFAULT_SERIAL_PORT         	"/dev/ttyUSB0"
 #define DAEMON                      	"mattd"
-#define MAX_TRIES			3
-#define NACK				0xFD
-#define LAND				0xAA
-#define ACK				0xFE
+#define LAND				                  0xAA
 
 #endif

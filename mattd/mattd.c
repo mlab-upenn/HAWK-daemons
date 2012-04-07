@@ -150,48 +150,39 @@ void send_data(uint8_t *data, int len) {
 }
 
 int main(int argc, char *argv[]) {
-  int counter = 0;
   int val = 0;
+  int i;
+  uint8_t *data = NULL;
+  
 	if (argc > 1) {
 		serial_path = argv[1];
 	} else {
 		serial_path = DEFAULT_SERIAL_PORT;
 	}
 
-	printf("trying to open %s\n", serial_path);
+	printf("Trying to open: %s\n", serial_path);
 	open_port();
 
-  //TODO notes for ACTUAL code
-  //open wireless socket with basestation
-  /*
-  uint8_t* data = NULL;
   while(1) {
-
-    if(data)
+    if(data != NULL) {
       free(data);
-    receive_data(&data);
-    //TODO check if data was actually received, otherwise don't send over wifi
-      if(sendall(data) < 0) {
-        //if wireless socket broken
-          //send LAND command to ardupilot
-      }
-  }
-  */
-
-  uint8_t *teddy = NULL;
-
-  printf("started\n");
-  while(1) {
-    if(teddy != NULL) {
-     free(teddy);
-     teddy = NULL;
+      data = NULL;
     }
-    val = receive_data(&teddy);
-    if (val) {
-      printf("received packet: %d\n", ++counter);
+    
+    val = receive_data(&data);
+    if(val == 1) {
+      //print out Byte
+      printf("ping sensor: ");
+      for(i = 0; i < 8; i++) {
+        printf((*data) & (1 << (7 - i)) ? "1" : "0");
+      }
+      printf("\n");
+      //TODO send data over wireless
+      //TODO if fails, send LAND command to ardupilot, exit
     }
     
   }
+
 	close_port();
 
 	return(0);
