@@ -261,11 +261,11 @@ int main(void) {
 	uint8_t *compdepth = (uint8_t *) malloc(depthsize);
 	uint8_t *comprgb = (uint8_t *) malloc(rgbsize);
 	
-	uint8_t * rgb_buf = (uint8_t *) malloc(rgbsize);
-	uint8_t * depth_buf = (uint8_t *) malloc(depthsize);
+	uint8_t * rgb_buf;
+	uint8_t * depth_buf;
 
-	uint8_t *image_data;
-	uint8_t *depth_data;
+	uint8_t *image_data = (uint8_t *) malloc(rgbsize);
+	uint8_t *depth_data = (uint8_t *) malloc(depthsize);
 
 	uint32_t depthcompression;
 	//unsigned long *rgbcompression = (unsigned long *) malloc(sizeof(long));
