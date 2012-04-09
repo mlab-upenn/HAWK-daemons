@@ -1,0 +1,6 @@
+#!/bin/bash
+
+echo "Starting kinectd..."
+ifdown wlan0
+ifup wlan0
+exec ./kinectd

@@ -11,4 +11,5 @@ $(EXECUTABLE): $(SOURCES)
 	$(CC) $(CCFLAGS) $(INCLUDEDIRS) $(LDFLAGS) $(SOURCES) -o $(EXECUTABLE)
 
 clean:
-	rm -f ./$(EXECUTABLE)
+	rm -f ./$(EXECUTABLE) ./*~
+

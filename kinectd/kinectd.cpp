@@ -244,8 +244,6 @@ int compress_depth(uint8_t * src, uint8_t * dest, uint32_t in_size) {
 }
 
 int main(void) {
-	printf("unsigned long size: %d\n", sizeof(unsigned long));
-
 	int sockfd = network_setup();
 	int framecount = 0;
 
@@ -286,7 +284,7 @@ int main(void) {
 		//compression = rgbsize;
 
 		compress_frame(image_data, &comprgb, &outsize, 480, 640, 3);	
-		printf("compressed rgb to size %d\n", outsize);
+		//printf("compressed rgb to size %d\n", outsize);
 
 		//send size of compressed rgb frame
 		if((sendall(sockfd, (uint8_t *)&outsize, sizeof(uint32_t))) < 0) {
@@ -301,7 +299,7 @@ int main(void) {
 	
 		//compress depth 
 		depthcompression = compress_depth(depth_data, compdepth, depthsize);	
-		printf("compressed depth to size %d\n", depthcompression);
+		//printf("compressed depth to size %d\n", depthcompression);
 
 		//send size of compressed rgb frame
 		if((sendall(sockfd, (uint8_t *)&depthcompression, sizeof(uint32_t))) < 0) {
@@ -314,6 +312,6 @@ int main(void) {
 			exit(1);
 }
 
-		printf("sent out frame %d\n", ++framecount);
+		//printf("sent out frame %d\n", ++framecount);
 	}
 }
