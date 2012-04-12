@@ -16,6 +16,7 @@
 
 char *serial_path;
 int serial_fd;
+struct termios options;
 
 void open_port() {
 	serial_fd = open(serial_path, O_RDWR | O_NOCTTY | O_NDELAY); //O_NDELAY: don't care if something's connected
@@ -23,8 +24,16 @@ void open_port() {
 		//Could not open serial port
 		perror(DAEMON);
 		exit(0);
-	} else
+	} else {
 		fcntl(serial_fd, F_SETFL, 0); //FNDELAY); //don't block while reading
+		/*
+		tcgetattr(serial_fd, &options);
+		cfsetispeed(&options, B115200);
+		cfsetospeed(&options, B115200);
+		options.c_cflag |= (CLOCAL | CREAD);
+		tcsetattr(serial_fd, TCSANOW, &options);	
+		*/
+	}
 }
 
 void close_port() {
@@ -67,10 +76,10 @@ int receive_data(uint8_t** dest) {
 
   uint8_t rx_len = 0;
   uint8_t rx_array_inx = 0;
-
+  //printf("in receive data\n");
   if(available() == 0)
     return 0;
-
+  //printf("data was available\n");
 	//try to receive preamble
 	while(buf != 0x06) {
 	  read_bytes(&buf, 1);
@@ -162,7 +171,7 @@ int main(int argc, char *argv[]) {
 
 	printf("Trying to open: %s\n", serial_path);
 	open_port();
-
+	printf("good to go, waiting...\n");
   while(1) {
     if(data != NULL) {
       free(data);
