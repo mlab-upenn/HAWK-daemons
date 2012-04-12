@@ -1,7 +1,7 @@
 CC=gcc
 CCFLAGS=-g -Wall -O3
 INCLUDEDIRS=-I/usr/local/include/libfreenect
-LDFLAGS=-lfreenect -lfreenect_sync -lz -ljpeg8
+LDFLAGS=-lfreenect -lfreenect_sync -lz -ljpeg
 SOURCES=kinectd.c
 EXECUTABLE=kinectd
 
