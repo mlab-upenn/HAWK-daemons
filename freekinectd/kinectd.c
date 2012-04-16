@@ -89,7 +89,7 @@ int kinectUpdate(void)
   // Pull a (distorted) RGB frame
   int ret = freenect_sync_get_video((void **)&rgb_raw, &ts, 0,
 				    FREENECT_VIDEO_RGB);
-  if(ret < 0) {
+  if(ret != 0) {
     printf("Error: unable to acquire RGB stream\n");
     return ret;
   }
@@ -98,7 +98,7 @@ int kinectUpdate(void)
   ret = freenect_sync_get_depth((void **)&depth_registered, &ts, 0,
 				FREENECT_DEPTH_REGISTERED);
   
-  if(ret < 0) {
+  if(ret != 0) {
     printf("Error: unable to acquire registered depth stream\n");
     return ret;
   }
@@ -331,9 +331,9 @@ int main(void) {
 	while(1) {
 
 	  int ret = kinectUpdate();
-	  if(ret < 0) {
-	    printf("Error: failed to obtain depth data\n");
-	    usleep(100);
+	  if(ret != 0) {
+	    printf("Error: failed to obtain depth data, dropping frame.\n");
+	    //usleep(100);
 	    continue;
 	  }
 	  image_data = rgb_raw;
