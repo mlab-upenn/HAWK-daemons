@@ -1,6 +1,10 @@
 #!/bin/bash
 
-echo "Starting kinectd..."
+# This run script can be used in conjuction with
+# daemontools (http://cr.yp.to/daemontools.html) to
+# launch freekinectd at boot.
+
+echo "Starting freekinectd..."
 ifdown wlan0
 ifup wlan0
 exec ./kinectd

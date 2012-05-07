@@ -1,3 +1,31 @@
+/**
+ *  Title:        freekinectd.c
+ *  Revision Number:  2.0 (release)
+ *  Date Created:   4/11/12
+ *
+ *  Authors:
+ *    Kevin Conley and Paul Gurniak
+ *
+ *  Description:
+ *
+ *    This module serves as the interface between the Kinect,
+ *    mounted on the quadrotor UAV, and the base station.  It
+ *    acquires RGB and depth (calibrated) data using the
+ *    libfreenect driver, compresses all data (using libjpeg
+ *    and zlib) and transmits data over a TCP socket to the
+ *    base station.
+ *
+ *  Location of back-up and revision history:
+ *
+ *    A full backup (and reversion history) for this file can be
+ *    found in the github repository:
+ *
+ *    https://github.com/mlab/HAWK-daemons
+ *
+ *    Navigate to the respective file, and select "History"
+ *
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <strings.h>
@@ -19,11 +47,8 @@
 #include "libfreenect.h"
 #include "libfreenect_sync.h"
 
-#define BASE_STATION_ADDR 	"192.168.1.21"
-#define BASE_STATION_PORT 	"1337"
-
-//TODO Think about doing this dynamically
-#define FRAME_WINDOW_SIZE	5
+#define BASE_STATION_ADDR   "192.168.1.21"
+#define BASE_STATION_PORT   "1337"
 
 // Path to configuration file
 #define SAMPLE_XML_PATH_LOCAL "KinectConfig.xml"
@@ -52,7 +77,7 @@ uint8_t * depth_dbuf = NULL;
 
 freenect_context * ctx;
 
-// Set up libfreenect to obtain 
+// Set up libfreenect to obtain data from RGB and depth cameras
 int kinectInit(void)
 {
   int ret;
@@ -87,7 +112,7 @@ int kinectUpdate(void)
   uint32_t ts;
   // Pull a (distorted) RGB frame
   int ret = freenect_sync_get_video((void **)&rgb_raw, &ts, 0,
-				    FREENECT_VIDEO_RGB);
+            FREENECT_VIDEO_RGB);
   if(ret != 0) {
     printf("Error: unable to acquire RGB stream\n");
     return ret;
@@ -95,7 +120,7 @@ int kinectUpdate(void)
 
   // Pull a depth frame registered to the above image
   ret = freenect_sync_get_depth((void **)&depth_registered, &ts, 0,
-				FREENECT_DEPTH_REGISTERED);
+        FREENECT_DEPTH_REGISTERED);
   
   if(ret != 0) {
     printf("Error: unable to acquire registered depth stream\n");
@@ -114,7 +139,6 @@ int kinectUpdate(void)
 
 }
 
-// TODO: make code use this
 void kinectShutdown(void)
 {
   
@@ -155,48 +179,48 @@ void * get_in_addr(struct sockaddr *sa)
 }
 
 int network_setup(void) {
-	int sockfd, rv;
-	char s[INET6_ADDRSTRLEN];
-	struct addrinfo hints, *servinfo, *p;
+  int sockfd, rv;
+  char s[INET6_ADDRSTRLEN];
+  struct addrinfo hints, *servinfo, *p;
 
-	bzero((void*)&hints, sizeof(hints));
-	hints.ai_family = PF_INET;            // IPv4
-	hints.ai_socktype = SOCK_STREAM;      // TCP
+  bzero((void*)&hints, sizeof(hints));
+  hints.ai_family = PF_INET;            // IPv4
+  hints.ai_socktype = SOCK_STREAM;      // TCP
 
-	if((rv = getaddrinfo(BASE_STATION_ADDR, BASE_STATION_PORT, &hints, &servinfo)) != 0) {
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-		exit(1);
-	}
+  if((rv = getaddrinfo(BASE_STATION_ADDR, BASE_STATION_PORT, &hints, &servinfo)) != 0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+    exit(1);
+  }
 
-	// Loop through results and connect to first usable one
-	for(p = servinfo; p != NULL; p = p->ai_next) {
-		if((sockfd = socket(p->ai_family, p->ai_socktype,
-						p->ai_protocol)) == -1) {
-			perror("socket");
-			continue;
-		}
+  // Loop through results and connect to first usable one
+  for(p = servinfo; p != NULL; p = p->ai_next) {
+    if((sockfd = socket(p->ai_family, p->ai_socktype,
+            p->ai_protocol)) == -1) {
+      perror("socket");
+      continue;
+    }
 
-		if(connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-			close(sockfd);
-			perror("connect (L53)");
-			continue;
-		}
-		// Successfully connected
-		break;
-	}
+    if(connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+      close(sockfd);
+      perror("connect (L53)");
+      continue;
+    }
+    // Successfully connected
+    break;
+  }
 
-	if(p == NULL) {
-		fprintf(stderr, "Failed to connect\n");
-		exit(2);
-	}
+  if(p == NULL) {
+    fprintf(stderr, "Failed to connect\n");
+    exit(2);
+  }
 
-	inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr),
-			s, sizeof(s));
+  inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr),
+      s, sizeof(s));
 
-	printf("Connected to %s\n", s);
-	freeaddrinfo(servinfo);   // Done with server info struct 
+  printf("Connected to %s\n", s);
+  freeaddrinfo(servinfo);   // Done with server info struct 
 
-	return sockfd;
+  return sockfd;
 }
 
 int setup_compression(void)
@@ -215,7 +239,7 @@ int close_compression(void)
 
 int compress_frame(uint8_t * src, uint8_t ** dest, unsigned long * outsize,
 
-		   const int height, const int width, const int format)
+       const int height, const int width, const int format)
 {
   uint8_t * row_pointer;
   int row_stride;
@@ -297,104 +321,108 @@ void sigintHandler(int signum)
 
 int runloop(void) {
 
-	int sockfd = network_setup();
-	int framecount = 0;
+  int sockfd = network_setup();
+  int framecount = 0;
 
-	signal(SIGINT, sigintHandler);
+  // Register signal handlers
+  signal(SIGINT, sigintHandler);
+  signal(SIGPIPE, SIG_IGN);
 
-	// Initialize the Kinect  
-	if(kinectInit()) {
-		printf("Error initializing device: check that the device is connected.\n");
-		return 1;
-	}
+  // Initialize the Kinect  
+  if(kinectInit()) {
+    printf("Error initializing device: check that the device is connected.\n");
+    return 1;
+  }
 
-	uint32_t depthsize = sizeof(uint16_t)*640*480;
-	unsigned long rgbsize;
-	rgbsize = sizeof(uint8_t)*3*640*480;
+  uint32_t depthsize = sizeof(uint16_t)*640*480;
+  unsigned long rgbsize;
+  rgbsize = sizeof(uint8_t)*3*640*480;
 
-	uint8_t *compdepth = (uint8_t *) malloc(depthsize);
-	uint8_t *comprgb = (uint8_t *) malloc(rgbsize);
+  uint8_t *compdepth = (uint8_t *) malloc(depthsize);
+  uint8_t *comprgb = (uint8_t *) malloc(rgbsize);
 
-	//uint8_t *image_data = (uint8_t *) malloc(rgbsize);
-	//uint8_t *depth_data = (uint8_t *) malloc(depthsize);
-	uint8_t * image_data;
-	uint8_t * depth_data;
+  //uint8_t *image_data = (uint8_t *) malloc(rgbsize);
+  //uint8_t *depth_data = (uint8_t *) malloc(depthsize);
+  uint8_t * image_data;
+  uint8_t * depth_data;
 
 
-	uint32_t depthcompression;
-	//unsigned long *rgbcompression = (unsigned long *) malloc(sizeof(long));
-	unsigned long outsize;
+  uint32_t depthcompression;
+  //unsigned long *rgbcompression = (unsigned long *) malloc(sizeof(long));
+  unsigned long outsize;
 
-	setup_compression();
+  setup_compression();
 
-	while(1) {
+  while(1) {
 
-	  int ret = kinectUpdate();
-	  if(ret != 0) {
-	    printf("Error: failed to obtain depth data, dropping frame.\n");
-	    //usleep(100);
-	    continue;
-	  }
-	  image_data = rgb_raw;
-	  depth_data = depth_registered;
-	  
-	  uint16_t * middlePoint = (uint16_t *)(depth_data + 640*240*2 + 240*2);
-	  	  
-	  //compress rgb
-	  compress_frame(image_data, &comprgb, &outsize, 480, 640, 3);	
-	  
+    int ret = kinectUpdate();
+    if(ret != 0) {
+      printf("Error: failed to obtain depth data, dropping frame.\n");
+      //usleep(100);
+      continue;
+    }
+    image_data = rgb_raw;
+    depth_data = depth_registered;
+
+    uint16_t * middlePoint = (uint16_t *)(depth_data + 640*240*2 + 240*2);
+
+    //compress rgb
+    compress_frame(image_data, &comprgb, &outsize, 480, 640, 3);  
 #ifdef VERBOSE
-	  printf("compressed rgb to size %d\n", outsize);
-#endif
-	  
-	  //send size of compressed rgb frame
-	  if((sendall(sockfd, (uint8_t *)&outsize, sizeof(uint32_t))) < 0) {
-	    perror("sendallrgbsize");
-	    //kinectShutdown();
-	    return 1;
-	  } 
-	  
-	  if((sendall(sockfd, comprgb, outsize)) < 0) {
-	    perror("sendallrgb");
-	    //kinectShutdown();
-	    return 1;
-	  }
-	  
-	  //compress depth 
-	  depthcompression = compress_depth(depth_data, compdepth, depthsize);	
-#ifdef VERBOSE
-	  printf("compressed depth to size %d\n", depthcompression);
-#endif	  
-
-	  //send size of compressed rgb frame
-	  if((sendall(sockfd, (uint8_t *)&depthcompression, sizeof(uint32_t))) < 0) {
-	    //kinectShutdown();
-	    perror("sendalldepthsize");
-	    return 1;
-	  }
-	  
-	  if((sendall(sockfd, compdepth, depthcompression)) < 0) {
-	    //kinectShutdown();
-	    perror("sendalldepth");
-	    return 1;
-	  }
-	  
-#ifdef VERBOSE	  
-	  printf("sent out frame %d\n", ++framecount);
+    printf("compressed rgb to size %d\n", outsize);
 #endif
 
-	  // Sleep for some time
-	  //	  usleep(1000*300);
-	  
-	}
+    //send size of compressed rgb frame
+    if((sendall(sockfd, (uint8_t *)&outsize, sizeof(uint32_t))) < 0) {
+      perror("sendallrgbsize");
+      //kinectShutdown();
+      return 1;
+    } 
 
-	return 0;
-	
+    if((sendall(sockfd, comprgb, outsize)) < 0) {
+      perror("sendallrgb");
+      //kinectShutdown();
+      return 1;
+    }
+
+    //compress depth 
+    depthcompression = compress_depth(depth_data, compdepth, depthsize);  
+#ifdef VERBOSE
+    printf("compressed depth to size %d\n", depthcompression);
+#endif    
+
+    //send size of compressed rgb frame
+    if((sendall(sockfd, (uint8_t *)&depthcompression, sizeof(uint32_t))) < 0) {
+      //kinectShutdown();
+      perror("sendalldepthsize");
+      return 1;
+    }
+
+    if((sendall(sockfd, compdepth, depthcompression)) < 0) {
+      //kinectShutdown();
+      perror("sendalldepth");
+      return 1;
+    }
+
+#ifdef VERBOSE    
+    printf("sent out frame %d\n", ++framecount);
+#endif
+
+
+  }
+
+  return 0;
+
 }
 
 int main(void)
 {
-  signal(SIGPIPE, SIG_IGN);
+  // Wrapping the runloop in a while(1) ensures that if a problem
+  // occurs, we don't need to quit all the way out of the program,
+  // and therefore perform an ifup/ifdown (thanks to daemontools).
+  // This allows us to just try to re-run if we have a simple error
+  // (i.e., runloop returns 1).  We still need to quit on uglier, or
+  // repeated, errors.
   while(1) {
     if(runloop() != 1) {
       return 1;
